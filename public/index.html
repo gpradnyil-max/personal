@@ -13,13 +13,47 @@
     <!-- Particle effects container -->
     <div id="particles"></div>
     
-    <!-- Start Screen -->
-    <div id="start-screen" class="screen active">
-        <div class="glass-card start-card">
+    <!-- Snowfall container -->
+    <div id="snowfall-container"></div>
+
+    <!-- Welcome Screen - Choose Challenge Type -->
+    <div id="welcome-screen" class="screen active">
+        <div class="glass-card welcome-card">
             <div class="logo-container">
                 <div class="logo">🧮</div>
                 <h1>Advait's Math Adventure</h1>
-                <p class="tagline">Master multiplication with fun! 🚀</p>
+                <p class="tagline">Choose your challenge! 🚀</p>
+            </div>
+            
+            <div class="challenge-tiles">
+                <button class="challenge-tile addition-tile" data-challenge="addition">
+                    <span class="tile-icon">➕</span>
+                    <span class="tile-title">Addition</span>
+                    <span class="tile-desc">Number bonds fun!</span>
+                </button>
+                
+                <button class="challenge-tile subtraction-tile" data-challenge="subtraction">
+                    <span class="tile-icon">➖</span>
+                    <span class="tile-title">Subtraction</span>
+                    <span class="tile-desc">Take it away!</span>
+                </button>
+                
+                <button class="challenge-tile multiplication-tile" data-challenge="multiplication">
+                    <span class="tile-icon">✖️</span>
+                    <span class="tile-title">Multiplication</span>
+                    <span class="tile-desc">Times tables master!</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Screen for Multiplication -->
+    <div id="config-screen" class="screen">
+        <div class="glass-card start-card">
+            <div class="logo-container">
+                <div class="logo">✖️</div>
+                <h1>Multiplication Challenge</h1>
+                <p class="tagline">Select tables to practice! 📊</p>
             </div>
             
             <div class="config-section">
@@ -29,9 +63,14 @@
                 </div>
             </div>
             
-            <button class="apple-button primary" id="start-btn">
-                <span>🎮 Start Adventure</span>
-            </button>
+            <div class="button-group">
+                <button class="apple-button secondary" id="back-to-welcome-btn">
+                    <span>⬅️ Back</span>
+                </button>
+                <button class="apple-button primary" id="start-btn">
+                    <span>🎮 Start</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -41,6 +80,11 @@
             <div class="score-display">
                 <span class="score-label">⭐ Points</span>
                 <span class="score-value" id="score">0</span>
+            </div>
+            
+            <div class="challenge-badge" id="challenge-badge">
+                <span id="challenge-icon">➕</span>
+                <span id="challenge-name">Addition</span>
             </div>
             
             <div class="timer-container">
@@ -66,7 +110,7 @@
                 
                 <div class="question-display">
                     <span class="number" id="num1">5</span>
-                    <span class="operator">×</span>
+                    <span class="operator" id="operator">+</span>
                     <span class="number" id="num2">7</span>
                     <span class="equals">=</span>
                     <span class="answer-placeholder">?</span>

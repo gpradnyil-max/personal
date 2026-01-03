@@ -1,28 +1,29 @@
 /**
  * Advait's Math Adventure
- * A fun multiplication learning app for kids
- * 
- * Configuration: Adjust TABLES array to add more tables as the child progresses
+ * A fun math learning app for kids
+ * Supports Addition, Subtraction, and Multiplication
  */
 
 // ===========================================
-// CONFIGURATION - Adjust these as needed!
+// CONFIGURATION
 // ===========================================
 const CONFIG = {
-    // Tables to practice (add more numbers as child progresses)
-    // Currently: 1-6, 10, 11 as requested
+    // Tables to practice for multiplication
     TABLES: [1, 2, 3, 4, 5, 6, 10, 11],
     
-    // Maximum multiplier (questions will be: TABLE × 1 to TABLE × MAX_MULTIPLIER)
-    MAX_MULTIPLIER: 12,
+    // Maximum multiplier
+    MAX_MULTIPLIER: 10,
     
     // Timer settings (in seconds)
     TIMER_DURATION: 10,
-    HURRY_UP_TIME: 7,  // Start warning after this many seconds
+    HURRY_UP_TIME: 7,
     
     // Points
     POINTS_PER_CORRECT: 10,
-    BONUS_STREAK_MULTIPLIER: 5,  // Extra points per streak after 3
+    BONUS_STREAK_MULTIPLIER: 5,
+    
+    // Snowfall streak trigger
+    SNOWFALL_STREAK: 10,
     
     // Sounds enabled
     SOUNDS_ENABLED: true
@@ -40,7 +41,9 @@ let gameState = {
     timerInterval: null,
     selectedTables: [...CONFIG.TABLES],
     streak: 0,
-    questionsAnswered: 0
+    questionsAnswered: 0,
+    challengeType: null, // 'addition', 'subtraction', 'multiplication'
+    snowfallActive: false
 };
 
 // ===========================================
@@ -48,12 +51,17 @@ let gameState = {
 // ===========================================
 const elements = {
     // Screens
-    startScreen: document.getElementById('start-screen'),
+    welcomeScreen: document.getElementById('welcome-screen'),
+    configScreen: document.getElementById('config-screen'),
     gameScreen: document.getElementById('game-screen'),
     
-    // Start screen
+    // Welcome screen
+    challengeTiles: document.querySelectorAll('.challenge-tile'),
+    
+    // Config screen (for multiplication)
     tablesSelection: document.getElementById('tables-selection'),
     startBtn: document.getElementById('start-btn'),
+    backToWelcomeBtn: document.getElementById('back-to-welcome-btn'),
     
     // Game screen
     score: document.getElementById('score'),
@@ -65,9 +73,15 @@ const elements = {
     resumeBtn: document.getElementById('resume-btn'),
     quitBtn: document.getElementById('quit-btn'),
     
+    // Challenge badge
+    challengeBadge: document.getElementById('challenge-badge'),
+    challengeIcon: document.getElementById('challenge-icon'),
+    challengeName: document.getElementById('challenge-name'),
+    
     // Question
     num1: document.getElementById('num1'),
     num2: document.getElementById('num2'),
+    operator: document.getElementById('operator'),
     questionCard: document.getElementById('question-card'),
     hurryIndicator: document.getElementById('hurry-indicator'),
     answerInput: document.getElementById('answer-input'),
@@ -76,7 +90,8 @@ const elements = {
     
     // Effects
     celebrationContainer: document.getElementById('celebration-container'),
-    particles: document.getElementById('particles')
+    particles: document.getElementById('particles'),
+    snowfallContainer: document.getElementById('snowfall-container')
 };
 
 // ===========================================
@@ -87,7 +102,6 @@ function init() {
     createTablesSelection();
     setupEventListeners();
     
-    // Pre-create audio context for sounds
     if (CONFIG.SOUNDS_ENABLED) {
         initAudio();
     }
@@ -107,7 +121,6 @@ function createBackgroundParticles() {
 }
 
 function createTablesSelection() {
-    // Create buttons for tables 1-12
     const allTables = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     
     allTables.forEach(table => {
@@ -116,7 +129,6 @@ function createTablesSelection() {
         btn.textContent = table;
         btn.dataset.table = table;
         
-        // Pre-select configured tables
         if (CONFIG.TABLES.includes(table)) {
             btn.classList.add('selected');
         }
@@ -135,7 +147,6 @@ function toggleTable(btn, table) {
         gameState.selectedTables.push(table);
     }
     
-    // Ensure at least one table is selected
     if (gameState.selectedTables.length === 0) {
         btn.classList.add('selected');
         gameState.selectedTables.push(table);
@@ -143,6 +154,16 @@ function toggleTable(btn, table) {
 }
 
 function setupEventListeners() {
+    // Challenge tiles
+    elements.challengeTiles.forEach(tile => {
+        tile.addEventListener('click', () => {
+            selectChallenge(tile.dataset.challenge);
+        });
+    });
+    
+    // Back to welcome
+    elements.backToWelcomeBtn.addEventListener('click', goToWelcome);
+    
     // Start game
     elements.startBtn.addEventListener('click', startGame);
     
@@ -168,10 +189,32 @@ function setupEventListeners() {
 }
 
 // ===========================================
+// SCREEN NAVIGATION
+// ===========================================
+function selectChallenge(challengeType) {
+    gameState.challengeType = challengeType;
+    
+    if (challengeType === 'multiplication') {
+        // Show config screen for multiplication
+        elements.welcomeScreen.classList.remove('active');
+        elements.configScreen.classList.add('active');
+    } else {
+        // Start directly for addition/subtraction
+        startGame();
+    }
+}
+
+function goToWelcome() {
+    elements.configScreen.classList.remove('active');
+    elements.gameScreen.classList.remove('active');
+    elements.welcomeScreen.classList.add('active');
+    gameState.challengeType = null;
+}
+
+// ===========================================
 // AUDIO
 // ===========================================
 let audioContext;
-let sounds = {};
 
 function initAudio() {
     try {
@@ -184,7 +227,6 @@ function initAudio() {
 function playSound(type) {
     if (!CONFIG.SOUNDS_ENABLED || !audioContext) return;
     
-    // Resume audio context if suspended (browser autoplay policy)
     if (audioContext.state === 'suspended') {
         audioContext.resume();
     }
@@ -197,10 +239,9 @@ function playSound(type) {
     
     switch (type) {
         case 'correct':
-            // Happy ascending sound
-            oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
-            oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
-            oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+            oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
             gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
             oscillator.start(audioContext.currentTime);
@@ -208,7 +249,6 @@ function playSound(type) {
             break;
             
         case 'wrong':
-            // Sad descending sound
             oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
             oscillator.frequency.setValueAtTime(300, audioContext.currentTime + 0.2);
             gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -218,7 +258,6 @@ function playSound(type) {
             break;
             
         case 'hurry':
-            // Alert beep
             oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
             gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
@@ -227,17 +266,28 @@ function playSound(type) {
             break;
             
         case 'tick':
-            // Subtle tick for last 3 seconds
             oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
             gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.05);
             break;
+            
+        case 'snowfall':
+            // Magical chime sound for snowfall
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1047, audioContext.currentTime); // C6
+            oscillator.frequency.setValueAtTime(1319, audioContext.currentTime + 0.1); // E6
+            oscillator.frequency.setValueAtTime(1568, audioContext.currentTime + 0.2); // G6
+            oscillator.frequency.setValueAtTime(2093, audioContext.currentTime + 0.3); // C7
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.6);
+            break;
     }
 }
 
-// Speech synthesis for hurry up message
 function speakHurryUp() {
     if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance('Hurry up!');
@@ -261,31 +311,88 @@ function startGame() {
     // Update UI
     elements.score.textContent = '0';
     
+    // Update challenge badge
+    updateChallengeBadge();
+    
     // Switch screens
-    elements.startScreen.classList.remove('active');
+    elements.welcomeScreen.classList.remove('active');
+    elements.configScreen.classList.remove('active');
     elements.gameScreen.classList.add('active');
     
     // Generate first question
     generateQuestion();
 }
 
-function generateQuestion() {
-    // Pick random table from selected tables
-    const table = gameState.selectedTables[Math.floor(Math.random() * gameState.selectedTables.length)];
+function updateChallengeBadge() {
+    const challengeInfo = {
+        addition: { icon: '➕', name: 'Addition', operator: '+' },
+        subtraction: { icon: '➖', name: 'Subtraction', operator: '−' },
+        multiplication: { icon: '✖️', name: 'Multiplication', operator: '×' }
+    };
     
-    // Pick random multiplier (1 to MAX_MULTIPLIER)
-    const multiplier = Math.floor(Math.random() * CONFIG.MAX_MULTIPLIER) + 1;
+    const info = challengeInfo[gameState.challengeType];
+    elements.challengeIcon.textContent = info.icon;
+    elements.challengeName.textContent = info.name;
+    elements.operator.textContent = info.operator;
+}
+
+function generateQuestion() {
+    let num1, num2, answer, operator;
+    
+    switch (gameState.challengeType) {
+        case 'addition':
+            // Generate addition questions: 1-digit + 1-digit OR 2-digit + 1-digit
+            if (Math.random() < 0.5) {
+                // 1-digit + 1-digit (e.g., 2+3, 5+7)
+                num1 = Math.floor(Math.random() * 9) + 1; // 1-9
+                num2 = Math.floor(Math.random() * 9) + 1; // 1-9
+            } else {
+                // 2-digit + 1-digit (e.g., 75+5, 99+4)
+                num1 = Math.floor(Math.random() * 90) + 10; // 10-99
+                num2 = Math.floor(Math.random() * 9) + 1; // 1-9
+            }
+            answer = num1 + num2;
+            operator = '+';
+            break;
+            
+        case 'subtraction':
+            // Generate subtraction questions: 1-digit - 1-digit OR 2-digit - 1-digit
+            if (Math.random() < 0.5) {
+                // 1-digit - 1-digit (e.g., 9-4, 8-4)
+                num1 = Math.floor(Math.random() * 9) + 1; // 1-9
+                num2 = Math.floor(Math.random() * num1) + 1; // 1 to num1 (ensure positive result)
+                if (num2 > num1) {
+                    [num1, num2] = [num2, num1]; // Swap to ensure positive result
+                }
+            } else {
+                // 2-digit - 1-digit (e.g., 89-9, 95-5)
+                num1 = Math.floor(Math.random() * 90) + 10; // 10-99
+                num2 = Math.floor(Math.random() * 9) + 1; // 1-9
+            }
+            answer = num1 - num2;
+            operator = '−';
+            break;
+            
+        case 'multiplication':
+            // Pick random table from selected tables
+            num1 = gameState.selectedTables[Math.floor(Math.random() * gameState.selectedTables.length)];
+            num2 = Math.floor(Math.random() * CONFIG.MAX_MULTIPLIER) + 1;
+            answer = num1 * num2;
+            operator = '×';
+            break;
+    }
     
     // Store current question
     gameState.currentQuestion = {
-        num1: table,
-        num2: multiplier,
-        answer: table * multiplier
+        num1: num1,
+        num2: num2,
+        answer: answer
     };
     
     // Update display
-    elements.num1.textContent = table;
-    elements.num2.textContent = multiplier;
+    elements.num1.textContent = num1;
+    elements.num2.textContent = num2;
+    elements.operator.textContent = operator;
     
     // Clear previous state
     elements.answerInput.value = '';
@@ -302,7 +409,6 @@ function generateQuestion() {
 }
 
 function startTimer() {
-    // Clear any existing timer
     if (gameState.timerInterval) {
         clearInterval(gameState.timerInterval);
     }
@@ -316,17 +422,14 @@ function startTimer() {
         gameState.timeLeft--;
         updateTimerDisplay();
         
-        // Check for hurry up warning
         if (gameState.timeLeft === CONFIG.TIMER_DURATION - CONFIG.HURRY_UP_TIME) {
             showHurryUp();
         }
         
-        // Tick sound for last 3 seconds
         if (gameState.timeLeft <= 3 && gameState.timeLeft > 0) {
             playSound('tick');
         }
         
-        // Time's up
         if (gameState.timeLeft <= 0) {
             handleTimeUp();
         }
@@ -336,12 +439,10 @@ function startTimer() {
 function updateTimerDisplay() {
     elements.timerText.textContent = gameState.timeLeft;
     
-    // Update circular progress
-    const circumference = 283; // 2 * PI * 45
+    const circumference = 283;
     const progress = (gameState.timeLeft / CONFIG.TIMER_DURATION) * circumference;
     elements.timerCircle.style.strokeDashoffset = circumference - progress;
     
-    // Update colors based on time
     elements.timerText.classList.remove('warning', 'danger');
     elements.timerCircle.classList.remove('warning', 'danger');
     
@@ -359,7 +460,6 @@ function showHurryUp() {
     playSound('hurry');
     speakHurryUp();
     
-    // Add visual shake to input
     elements.answerInput.style.animation = 'shake 0.3s ease';
     setTimeout(() => {
         elements.answerInput.style.animation = '';
@@ -369,7 +469,6 @@ function showHurryUp() {
 function handleTimeUp() {
     clearInterval(gameState.timerInterval);
     
-    // Show timeout message - let them try again
     elements.feedback.textContent = '⏰ Time\'s up! Try again!';
     elements.feedback.className = 'feedback wrong';
     
@@ -378,8 +477,8 @@ function handleTimeUp() {
     
     // Reset streak
     gameState.streak = 0;
+    stopSnowfall();
     
-    // Restart timer for retry
     setTimeout(() => {
         elements.feedback.textContent = '';
         elements.answerInput.value = '';
@@ -392,7 +491,6 @@ function checkAnswer() {
     const userAnswer = parseInt(elements.answerInput.value);
     
     if (isNaN(userAnswer)) {
-        // No answer entered
         elements.answerInput.focus();
         return;
     }
@@ -429,6 +527,11 @@ function handleCorrectAnswer() {
     showPartyPoppers();
     playSound('correct');
     
+    // Check for snowfall trigger (streak of 10)
+    if (gameState.streak === CONFIG.SNOWFALL_STREAK) {
+        startSnowfall();
+    }
+    
     // Update streak badge
     updateStreakBadge();
     
@@ -439,44 +542,115 @@ function handleCorrectAnswer() {
 }
 
 function handleWrongAnswer() {
-    // Show sad feedback
     elements.feedback.textContent = `😢 Try again! You can do it!`;
     elements.feedback.className = 'feedback wrong';
     
     // Reset streak
     gameState.streak = 0;
     updateStreakBadge();
+    stopSnowfall();
     
     // Visual effects
     elements.questionCard.classList.add('wrong-shake');
     showSadEmoji();
     playSound('wrong');
     
-    // Let them try again - DON'T proceed to next question
+    // Let them try again
     setTimeout(() => {
         elements.answerInput.value = '';
         elements.answerInput.focus();
         elements.questionCard.classList.remove('wrong-shake');
-        
-        // Restart timer for retry
         startTimer();
     }, 1500);
 }
 
 function updateStreakBadge() {
-    // Remove existing badge
     const existingBadge = document.querySelector('.streak-badge');
     if (existingBadge) {
         existingBadge.remove();
     }
     
-    // Add new badge if streak >= 3
     if (gameState.streak >= 3) {
         const badge = document.createElement('div');
         badge.className = 'streak-badge';
         badge.textContent = `🔥 ${gameState.streak} streak!`;
         elements.questionCard.appendChild(badge);
     }
+}
+
+// ===========================================
+// SNOWFALL EFFECT
+// ===========================================
+function startSnowfall() {
+    if (gameState.snowfallActive) return;
+    
+    gameState.snowfallActive = true;
+    playSound('snowfall');
+    
+    // Show celebration message
+    showSnowfallCelebration();
+    
+    // Create snowflakes
+    createSnowflakes();
+}
+
+function showSnowfallCelebration() {
+    const celebration = document.createElement('div');
+    celebration.className = 'snowfall-celebration';
+    celebration.innerHTML = `
+        <div class="snowfall-message">
+            ❄️ WOW! 10 in a row! ❄️
+            <span>You're on FIRE! 🔥</span>
+        </div>
+    `;
+    elements.celebrationContainer.appendChild(celebration);
+    
+    setTimeout(() => celebration.remove(), 3000);
+}
+
+function createSnowflakes() {
+    const snowflakes = ['❄️', '❅', '❆', '✧', '✦', '⁕'];
+    
+    function createSnowflake() {
+        if (!gameState.snowfallActive) return;
+        
+        const snowflake = document.createElement('div');
+        snowflake.className = 'snowflake';
+        snowflake.textContent = snowflakes[Math.floor(Math.random() * snowflakes.length)];
+        snowflake.style.left = Math.random() * 100 + '%';
+        snowflake.style.fontSize = (Math.random() * 20 + 10) + 'px';
+        snowflake.style.opacity = Math.random() * 0.5 + 0.5;
+        snowflake.style.animationDuration = (Math.random() * 3 + 3) + 's';
+        
+        elements.snowfallContainer.appendChild(snowflake);
+        
+        setTimeout(() => snowflake.remove(), 6000);
+    }
+    
+    // Create initial burst
+    for (let i = 0; i < 30; i++) {
+        setTimeout(createSnowflake, i * 50);
+    }
+    
+    // Continue creating snowflakes while active
+    gameState.snowfallInterval = setInterval(() => {
+        if (gameState.snowfallActive) {
+            createSnowflake();
+        }
+    }, 150);
+}
+
+function stopSnowfall() {
+    gameState.snowfallActive = false;
+    if (gameState.snowfallInterval) {
+        clearInterval(gameState.snowfallInterval);
+        gameState.snowfallInterval = null;
+    }
+    
+    // Clear remaining snowflakes after a delay
+    setTimeout(() => {
+        elements.snowfallContainer.innerHTML = '';
+    }, 3000);
 }
 
 // ===========================================
@@ -504,26 +678,21 @@ function resumeGame() {
 }
 
 function quitGame() {
-    // Stop timer
     clearInterval(gameState.timerInterval);
+    stopSnowfall();
     
-    // Reset state
     gameState.isGameActive = false;
     gameState.isPaused = false;
     
-    // Hide pause overlay
     elements.pauseOverlay.classList.remove('show');
-    
-    // Switch screens
     elements.gameScreen.classList.remove('active');
-    elements.startScreen.classList.add('active');
+    elements.welcomeScreen.classList.add('active');
 }
 
 // ===========================================
 // CELEBRATION EFFECTS
 // ===========================================
 function showPartyPoppers() {
-    // Create multiple party poppers
     const positions = [
         { left: '20%', top: '30%' },
         { left: '80%', top: '30%' },
@@ -545,7 +714,6 @@ function showPartyPoppers() {
         }, index * 100);
     });
     
-    // Create confetti
     createConfetti();
 }
 
