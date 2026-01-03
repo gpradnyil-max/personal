@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎓 Advait's Math Adventure</title>
+    <title>🎓 Advait's Learning Adventure</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -16,13 +16,38 @@
     <!-- Snowfall container -->
     <div id="snowfall-container"></div>
 
-    <!-- Welcome Screen - Choose Challenge Type -->
-    <div id="welcome-screen" class="screen active">
+    <!-- Main Welcome Screen - Choose Category -->
+    <div id="main-welcome-screen" class="screen active">
+        <div class="glass-card welcome-card">
+            <div class="logo-container">
+                <div class="logo">🎓</div>
+                <h1>Advait's Learning Adventure</h1>
+                <p class="tagline">Choose your adventure! 🚀</p>
+            </div>
+            
+            <div class="category-tiles">
+                <button class="category-tile math-category" data-category="math">
+                    <span class="category-icon">🧮</span>
+                    <span class="category-title">Math</span>
+                    <span class="category-desc">Numbers & Calculations</span>
+                </button>
+                
+                <button class="category-tile english-category" data-category="english">
+                    <span class="category-icon">📚</span>
+                    <span class="category-title">English</span>
+                    <span class="category-desc">Grammar & Words</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Math Welcome Screen -->
+    <div id="math-welcome-screen" class="screen">
         <div class="glass-card welcome-card">
             <div class="logo-container">
                 <div class="logo">🧮</div>
-                <h1>Advait's Math Adventure</h1>
-                <p class="tagline">Choose your challenge! 🚀</p>
+                <h1>Math Challenge</h1>
+                <p class="tagline">Choose your challenge! 🔢</p>
             </div>
             
             <div class="challenge-tiles">
@@ -44,6 +69,63 @@
                     <span class="tile-desc">Times tables master!</span>
                 </button>
             </div>
+            
+            <button class="apple-button secondary back-btn" id="back-to-main-from-math">
+                <span>⬅️ Back</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- English Welcome Screen -->
+    <div id="english-welcome-screen" class="screen">
+        <div class="glass-card welcome-card">
+            <div class="logo-container">
+                <div class="logo">📚</div>
+                <h1>English Challenge</h1>
+                <p class="tagline">Master the language! 🌟</p>
+            </div>
+            
+            <div class="challenge-tiles grammar-tiles">
+                <button class="challenge-tile noun-tile" data-challenge="noun">
+                    <span class="tile-icon">🏠</span>
+                    <span class="tile-title">Nouns</span>
+                    <span class="tile-desc">Person, place, thing</span>
+                </button>
+                
+                <button class="challenge-tile adjective-tile" data-challenge="adjective">
+                    <span class="tile-icon">🌈</span>
+                    <span class="tile-title">Adjectives</span>
+                    <span class="tile-desc">Describing words</span>
+                </button>
+                
+                <button class="challenge-tile verb-tile" data-challenge="verb">
+                    <span class="tile-icon">🏃</span>
+                    <span class="tile-title">Verbs</span>
+                    <span class="tile-desc">Action words</span>
+                </button>
+                
+                <button class="challenge-tile adverb-tile" data-challenge="adverb">
+                    <span class="tile-icon">⚡</span>
+                    <span class="tile-title">Adverbs</span>
+                    <span class="tile-desc">How things happen</span>
+                </button>
+                
+                <button class="challenge-tile conjunction-tile" data-challenge="conjunction">
+                    <span class="tile-icon">🔗</span>
+                    <span class="tile-title">Conjunctions</span>
+                    <span class="tile-desc">Joining words</span>
+                </button>
+                
+                <button class="challenge-tile vocabulary-tile" data-challenge="vocabulary">
+                    <span class="tile-icon">📖</span>
+                    <span class="tile-title">Vocabulary</span>
+                    <span class="tile-desc">Spelling & Words</span>
+                </button>
+            </div>
+            
+            <button class="apple-button secondary back-btn" id="back-to-main-from-english">
+                <span>⬅️ Back</span>
+            </button>
         </div>
     </div>
 
@@ -64,7 +146,7 @@
             </div>
             
             <div class="button-group">
-                <button class="apple-button secondary" id="back-to-welcome-btn">
+                <button class="apple-button secondary" id="back-to-math-btn">
                     <span>⬅️ Back</span>
                 </button>
                 <button class="apple-button primary" id="start-btn">
@@ -74,7 +156,7 @@
         </div>
     </div>
 
-    <!-- Game Screen -->
+    <!-- Math Game Screen -->
     <div id="game-screen" class="screen">
         <div class="game-header">
             <div class="score-display">
@@ -147,6 +229,198 @@
         </div>
     </div>
 
+    <!-- English Game Screen -->
+    <div id="english-game-screen" class="screen">
+        <div class="game-header">
+            <div class="score-display">
+                <span class="score-label">⭐ Points</span>
+                <span class="score-value" id="english-score">0</span>
+            </div>
+            
+            <div class="challenge-badge" id="english-challenge-badge">
+                <span id="english-challenge-icon">📝</span>
+                <span id="english-challenge-name">Grammar</span>
+            </div>
+            
+            <div class="timer-container">
+                <div class="timer-ring">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="timer-bg" cx="50" cy="50" r="45"/>
+                        <circle class="timer-progress" id="english-timer-circle" cx="50" cy="50" r="45"/>
+                    </svg>
+                    <span class="timer-text" id="english-timer-text">15</span>
+                </div>
+            </div>
+            
+            <button class="pause-btn" id="english-pause-btn">
+                <span id="english-pause-icon">⏸️</span>
+            </button>
+        </div>
+
+        <div class="game-content">
+            <div class="question-card glass-card english-question-card" id="english-question-card">
+                <div class="hurry-indicator" id="english-hurry-indicator">
+                    ⚡ Hurry up! ⚡
+                </div>
+                
+                <div class="english-question-display" id="english-question-display">
+                    <div class="question-instruction" id="question-instruction">
+                        Choose the best adjective to complete the sentence:
+                    </div>
+                    
+                    <div class="sentence-display" id="sentence-display">
+                        There was a <span class="blank-word">_____</span> queue at the airport.
+                    </div>
+                    
+                    <div class="word-options" id="word-options">
+                        <!-- Generated by JS -->
+                    </div>
+                    
+                    <p class="tap-hint">💡 Tap any word to learn its meaning!</p>
+                </div>
+                
+                <div class="feedback" id="english-feedback"></div>
+            </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div class="pause-overlay" id="english-pause-overlay">
+            <div class="glass-card pause-card">
+                <h2>⏸️ Game Paused</h2>
+                <p>Take a break, Advait! 🍎</p>
+                <button class="apple-button primary" id="english-resume-btn">
+                    ▶️ Resume
+                </button>
+                <button class="apple-button secondary" id="english-quit-btn">
+                    🏠 Back to Home
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Word Definition Modal -->
+    <div class="definition-modal" id="definition-modal">
+        <div class="glass-card definition-card">
+            <button class="close-modal-btn" id="close-modal-btn">✕</button>
+            <div class="definition-content" id="definition-content">
+                <h2 class="definition-word" id="definition-word">Word</h2>
+                <p class="definition-phonetic" id="definition-phonetic"></p>
+                <div class="definition-meaning" id="definition-meaning">
+                    Loading...
+                </div>
+                <button class="apple-button sound-btn" id="play-pronunciation-btn">
+                    🔊 Listen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vocabulary Learning Screen -->
+    <div id="vocabulary-learn-screen" class="screen">
+        <div class="glass-card vocabulary-card">
+            <div class="vocab-header">
+                <div class="logo">📖</div>
+                <h1>Learn New Words!</h1>
+                <p class="vocab-progress">Word <span id="vocab-current">1</span> of <span id="vocab-total">5</span></p>
+            </div>
+            
+            <div class="vocab-word-display" id="vocab-word-display">
+                <div class="vocab-word" id="vocab-word">elephant</div>
+                <div class="vocab-meaning" id="vocab-meaning">
+                    <p class="meaning-text" id="meaning-text">A very large grey animal with a long trunk and big ears</p>
+                    <p class="example-text" id="example-text"><em>"The elephant sprayed water with its trunk."</em></p>
+                </div>
+                <button class="apple-button sound-btn vocab-listen-btn" id="vocab-listen-btn">
+                    🔊 Listen to Pronunciation
+                </button>
+            </div>
+            
+            <div class="vocab-words-list" id="vocab-words-list">
+                <!-- Word cards generated by JS -->
+            </div>
+            
+            <div class="vocab-buttons">
+                <button class="apple-button secondary" id="vocab-back-btn">
+                    ⬅️ Back
+                </button>
+                <button class="apple-button primary" id="vocab-next-btn">
+                    Next Word ➡️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vocabulary Quiz Screen -->
+    <div id="vocabulary-quiz-screen" class="screen">
+        <div class="game-header">
+            <div class="score-display">
+                <span class="score-label">⭐ Points</span>
+                <span class="score-value" id="vocab-score">0</span>
+            </div>
+            
+            <div class="challenge-badge">
+                <span>📖</span>
+                <span>Spelling Quiz</span>
+            </div>
+            
+            <div class="quiz-progress">
+                <span id="quiz-current">1</span> / <span id="quiz-total">5</span>
+            </div>
+        </div>
+
+        <div class="game-content">
+            <div class="question-card glass-card vocab-quiz-card" id="vocab-quiz-card">
+                <div class="quiz-instruction">
+                    🎯 Choose the correct spelling:
+                </div>
+                
+                <div class="quiz-meaning" id="quiz-meaning">
+                    A very large grey animal with a long trunk and big ears
+                </div>
+                
+                <div class="spelling-options" id="spelling-options">
+                    <!-- Generated by JS -->
+                </div>
+                
+                <div class="feedback" id="vocab-feedback"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vocabulary Results Screen -->
+    <div id="vocabulary-results-screen" class="screen">
+        <div class="glass-card results-card">
+            <div class="results-header">
+                <div class="results-emoji" id="results-emoji">🎉</div>
+                <h1 id="results-title">Great Job!</h1>
+            </div>
+            
+            <div class="results-stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="results-score">50</span>
+                    <span class="stat-label">Points</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="results-correct">5</span>
+                    <span class="stat-label">Correct</span>
+                </div>
+            </div>
+            
+            <div class="results-words" id="results-words">
+                <!-- Words reviewed shown here -->
+            </div>
+            
+            <div class="results-buttons">
+                <button class="apple-button primary" id="vocab-play-again-btn">
+                    🔄 Learn More Words
+                </button>
+                <button class="apple-button secondary" id="vocab-home-btn">
+                    🏠 Back to Home
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Celebration Effects -->
     <div id="celebration-container"></div>
     
@@ -161,6 +435,8 @@
         <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACA" type="audio/wav">
     </audio>
 
+    <script src="questions.js"></script>
+    <script src="vocabulary.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

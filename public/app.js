@@ -1,7 +1,7 @@
 /**
- * Advait's Math Adventure
- * A fun math learning app for kids
- * Supports Addition, Subtraction, and Multiplication
+ * Advait's Learning Adventure
+ * A fun learning app for kids
+ * Supports Math (Addition, Subtraction, Multiplication) and English (Grammar)
  */
 
 // ===========================================
@@ -16,7 +16,9 @@ const CONFIG = {
     
     // Timer settings (in seconds)
     TIMER_DURATION: 10,
+    ENGLISH_TIMER_DURATION: 15,
     HURRY_UP_TIME: 7,
+    ENGLISH_HURRY_UP_TIME: 10,
     
     // Points
     POINTS_PER_CORRECT: 10,
@@ -32,6 +34,8 @@ const CONFIG = {
 // ===========================================
 // GAME STATE
 // ===========================================
+// NOTE: GRAMMAR_DATA is loaded from questions.js
+
 let gameState = {
     score: 0,
     currentQuestion: null,
@@ -42,8 +46,18 @@ let gameState = {
     selectedTables: [...CONFIG.TABLES],
     streak: 0,
     questionsAnswered: 0,
-    challengeType: null, // 'addition', 'subtraction', 'multiplication'
-    snowfallActive: false
+    challengeType: null,
+    snowfallActive: false,
+    category: null, // 'math' or 'english'
+    usedQuestions: [], // Track used questions to avoid repetition
+    
+    // Vocabulary game state
+    vocabWords: [],        // Current set of 5 words to learn
+    vocabCurrentIndex: 0,  // Current word index in learning phase
+    vocabQuizIndex: 0,     // Current word index in quiz phase
+    vocabCorrect: 0,       // Correct answers in quiz
+    vocabScore: 0,         // Points earned
+    usedVocabWords: []     // Track used vocabulary words
 };
 
 // ===========================================
@@ -51,19 +65,32 @@ let gameState = {
 // ===========================================
 const elements = {
     // Screens
-    welcomeScreen: document.getElementById('welcome-screen'),
+    mainWelcomeScreen: document.getElementById('main-welcome-screen'),
+    mathWelcomeScreen: document.getElementById('math-welcome-screen'),
+    englishWelcomeScreen: document.getElementById('english-welcome-screen'),
     configScreen: document.getElementById('config-screen'),
     gameScreen: document.getElementById('game-screen'),
+    englishGameScreen: document.getElementById('english-game-screen'),
     
-    // Welcome screen
-    challengeTiles: document.querySelectorAll('.challenge-tile'),
+    // Category tiles
+    categoryTiles: document.querySelectorAll('.category-tile'),
+    
+    // Math challenge tiles
+    mathChallengeTiles: document.querySelectorAll('#math-welcome-screen .challenge-tile'),
+    
+    // English challenge tiles
+    englishChallengeTiles: document.querySelectorAll('#english-welcome-screen .challenge-tile'),
+    
+    // Back buttons
+    backToMainFromMath: document.getElementById('back-to-main-from-math'),
+    backToMainFromEnglish: document.getElementById('back-to-main-from-english'),
+    backToMathBtn: document.getElementById('back-to-math-btn'),
     
     // Config screen (for multiplication)
     tablesSelection: document.getElementById('tables-selection'),
     startBtn: document.getElementById('start-btn'),
-    backToWelcomeBtn: document.getElementById('back-to-welcome-btn'),
     
-    // Game screen
+    // Math Game screen
     score: document.getElementById('score'),
     timerText: document.getElementById('timer-text'),
     timerCircle: document.getElementById('timer-circle'),
@@ -78,7 +105,7 @@ const elements = {
     challengeIcon: document.getElementById('challenge-icon'),
     challengeName: document.getElementById('challenge-name'),
     
-    // Question
+    // Math Question
     num1: document.getElementById('num1'),
     num2: document.getElementById('num2'),
     operator: document.getElementById('operator'),
@@ -88,11 +115,76 @@ const elements = {
     submitBtn: document.getElementById('submit-btn'),
     feedback: document.getElementById('feedback'),
     
+    // English Game screen
+    englishScore: document.getElementById('english-score'),
+    englishTimerText: document.getElementById('english-timer-text'),
+    englishTimerCircle: document.getElementById('english-timer-circle'),
+    englishPauseBtn: document.getElementById('english-pause-btn'),
+    englishPauseIcon: document.getElementById('english-pause-icon'),
+    englishPauseOverlay: document.getElementById('english-pause-overlay'),
+    englishResumeBtn: document.getElementById('english-resume-btn'),
+    englishQuitBtn: document.getElementById('english-quit-btn'),
+    
+    // English Challenge badge
+    englishChallengeBadge: document.getElementById('english-challenge-badge'),
+    englishChallengeIcon: document.getElementById('english-challenge-icon'),
+    englishChallengeName: document.getElementById('english-challenge-name'),
+    
+    // English Question
+    englishQuestionCard: document.getElementById('english-question-card'),
+    englishHurryIndicator: document.getElementById('english-hurry-indicator'),
+    questionInstruction: document.getElementById('question-instruction'),
+    sentenceDisplay: document.getElementById('sentence-display'),
+    wordOptions: document.getElementById('word-options'),
+    englishFeedback: document.getElementById('english-feedback'),
+    
+    // Definition Modal
+    definitionModal: document.getElementById('definition-modal'),
+    closeModalBtn: document.getElementById('close-modal-btn'),
+    definitionWord: document.getElementById('definition-word'),
+    definitionPhonetic: document.getElementById('definition-phonetic'),
+    definitionMeaning: document.getElementById('definition-meaning'),
+    playPronunciationBtn: document.getElementById('play-pronunciation-btn'),
+    
+    // Vocabulary Learning Screen
+    vocabularyLearnScreen: document.getElementById('vocabulary-learn-screen'),
+    vocabCurrent: document.getElementById('vocab-current'),
+    vocabTotal: document.getElementById('vocab-total'),
+    vocabWord: document.getElementById('vocab-word'),
+    meaningText: document.getElementById('meaning-text'),
+    exampleText: document.getElementById('example-text'),
+    vocabListenBtn: document.getElementById('vocab-listen-btn'),
+    vocabWordsList: document.getElementById('vocab-words-list'),
+    vocabBackBtn: document.getElementById('vocab-back-btn'),
+    vocabNextBtn: document.getElementById('vocab-next-btn'),
+    
+    // Vocabulary Quiz Screen
+    vocabularyQuizScreen: document.getElementById('vocabulary-quiz-screen'),
+    vocabScoreDisplay: document.getElementById('vocab-score'),
+    quizCurrent: document.getElementById('quiz-current'),
+    quizTotal: document.getElementById('quiz-total'),
+    quizMeaning: document.getElementById('quiz-meaning'),
+    spellingOptions: document.getElementById('spelling-options'),
+    vocabFeedback: document.getElementById('vocab-feedback'),
+    
+    // Vocabulary Results Screen
+    vocabularyResultsScreen: document.getElementById('vocabulary-results-screen'),
+    resultsEmoji: document.getElementById('results-emoji'),
+    resultsTitle: document.getElementById('results-title'),
+    resultsScore: document.getElementById('results-score'),
+    resultsCorrect: document.getElementById('results-correct'),
+    resultsWords: document.getElementById('results-words'),
+    vocabPlayAgainBtn: document.getElementById('vocab-play-again-btn'),
+    vocabHomeBtn: document.getElementById('vocab-home-btn'),
+    
     // Effects
     celebrationContainer: document.getElementById('celebration-container'),
     particles: document.getElementById('particles'),
     snowfallContainer: document.getElementById('snowfall-container')
 };
+
+// Store current word audio URL
+let currentWordAudioUrl = null;
 
 // ===========================================
 // INITIALIZATION
@@ -154,36 +246,83 @@ function toggleTable(btn, table) {
 }
 
 function setupEventListeners() {
-    // Challenge tiles
-    elements.challengeTiles.forEach(tile => {
+    // Category tiles (main welcome screen)
+    elements.categoryTiles.forEach(tile => {
         tile.addEventListener('click', () => {
-            selectChallenge(tile.dataset.challenge);
+            selectCategory(tile.dataset.category);
         });
     });
     
-    // Back to welcome
-    elements.backToWelcomeBtn.addEventListener('click', goToWelcome);
+    // Math challenge tiles
+    elements.mathChallengeTiles.forEach(tile => {
+        tile.addEventListener('click', () => {
+            selectMathChallenge(tile.dataset.challenge);
+        });
+    });
     
-    // Start game
-    elements.startBtn.addEventListener('click', startGame);
+    // English challenge tiles
+    elements.englishChallengeTiles.forEach(tile => {
+        tile.addEventListener('click', () => {
+            selectEnglishChallenge(tile.dataset.challenge);
+        });
+    });
     
-    // Pause/Resume
+    // Back buttons
+    elements.backToMainFromMath.addEventListener('click', goToMainWelcome);
+    elements.backToMainFromEnglish.addEventListener('click', goToMainWelcome);
+    elements.backToMathBtn.addEventListener('click', goToMathWelcome);
+    
+    // Start game (multiplication config)
+    elements.startBtn.addEventListener('click', startMathGame);
+    
+    // Math Pause/Resume
     elements.pauseBtn.addEventListener('click', togglePause);
     elements.resumeBtn.addEventListener('click', resumeGame);
     elements.quitBtn.addEventListener('click', quitGame);
     
-    // Submit answer
-    elements.submitBtn.addEventListener('click', checkAnswer);
+    // Math Submit answer
+    elements.submitBtn.addEventListener('click', checkMathAnswer);
     elements.answerInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            checkAnswer();
+            checkMathAnswer();
         }
     });
     
+    // English Pause/Resume
+    elements.englishPauseBtn.addEventListener('click', toggleEnglishPause);
+    elements.englishResumeBtn.addEventListener('click', resumeEnglishGame);
+    elements.englishQuitBtn.addEventListener('click', quitEnglishGame);
+    
+    // Definition modal
+    elements.closeModalBtn.addEventListener('click', closeDefinitionModal);
+    elements.definitionModal.addEventListener('click', (e) => {
+        if (e.target === elements.definitionModal) {
+            closeDefinitionModal();
+        }
+    });
+    elements.playPronunciationBtn.addEventListener('click', playPronunciation);
+    
+    // Vocabulary learning and quiz buttons
+    elements.vocabBackBtn.addEventListener('click', goBackFromVocab);
+    elements.vocabNextBtn.addEventListener('click', goToNextVocabWord);
+    elements.vocabListenBtn.addEventListener('click', () => {
+        speakWord(gameState.vocabWords[gameState.vocabCurrentIndex].word);
+    });
+    elements.vocabPlayAgainBtn.addEventListener('click', startVocabularyLearning);
+    elements.vocabHomeBtn.addEventListener('click', goToMainWelcome);
+    
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && gameState.isGameActive) {
-            togglePause();
+        if (e.key === 'Escape') {
+            if (elements.definitionModal.classList.contains('show')) {
+                closeDefinitionModal();
+            } else if (gameState.isGameActive) {
+                if (gameState.category === 'math') {
+                    togglePause();
+                } else {
+                    toggleEnglishPause();
+                }
+            }
         }
     });
 }
@@ -191,24 +330,57 @@ function setupEventListeners() {
 // ===========================================
 // SCREEN NAVIGATION
 // ===========================================
-function selectChallenge(challengeType) {
-    gameState.challengeType = challengeType;
+function selectCategory(category) {
+    gameState.category = category;
     
-    if (challengeType === 'multiplication') {
-        // Show config screen for multiplication
-        elements.welcomeScreen.classList.remove('active');
-        elements.configScreen.classList.add('active');
-    } else {
-        // Start directly for addition/subtraction
-        startGame();
+    elements.mainWelcomeScreen.classList.remove('active');
+    
+    if (category === 'math') {
+        elements.mathWelcomeScreen.classList.add('active');
+    } else if (category === 'english') {
+        elements.englishWelcomeScreen.classList.add('active');
     }
 }
 
-function goToWelcome() {
+function selectMathChallenge(challengeType) {
+    gameState.challengeType = challengeType;
+    
+    if (challengeType === 'multiplication') {
+        elements.mathWelcomeScreen.classList.remove('active');
+        elements.configScreen.classList.add('active');
+    } else {
+        startMathGame();
+    }
+}
+
+function selectEnglishChallenge(challengeType) {
+    gameState.challengeType = challengeType;
+    gameState.usedQuestions = []; // Reset used questions
+    
+    if (challengeType === 'vocabulary') {
+        startVocabularyLearning();
+    } else {
+        startEnglishGame();
+    }
+}
+
+function goToMainWelcome() {
+    elements.mathWelcomeScreen.classList.remove('active');
+    elements.englishWelcomeScreen.classList.remove('active');
     elements.configScreen.classList.remove('active');
     elements.gameScreen.classList.remove('active');
-    elements.welcomeScreen.classList.add('active');
+    elements.englishGameScreen.classList.remove('active');
+    elements.vocabularyLearnScreen.classList.remove('active');
+    elements.vocabularyQuizScreen.classList.remove('active');
+    elements.vocabularyResultsScreen.classList.remove('active');
+    elements.mainWelcomeScreen.classList.add('active');
+    gameState.category = null;
     gameState.challengeType = null;
+}
+
+function goToMathWelcome() {
+    elements.configScreen.classList.remove('active');
+    elements.mathWelcomeScreen.classList.add('active');
 }
 
 // ===========================================
@@ -298,32 +470,33 @@ function speakHurryUp() {
 }
 
 // ===========================================
-// GAME LOGIC
+// MATH GAME LOGIC
 // ===========================================
-function startGame() {
+function startMathGame() {
     // Reset game state
     gameState.score = 0;
     gameState.streak = 0;
     gameState.questionsAnswered = 0;
     gameState.isGameActive = true;
     gameState.isPaused = false;
+    gameState.category = 'math';
     
     // Update UI
     elements.score.textContent = '0';
     
     // Update challenge badge
-    updateChallengeBadge();
+    updateMathChallengeBadge();
     
     // Switch screens
-    elements.welcomeScreen.classList.remove('active');
+    elements.mathWelcomeScreen.classList.remove('active');
     elements.configScreen.classList.remove('active');
     elements.gameScreen.classList.add('active');
     
     // Generate first question
-    generateQuestion();
+    generateMathQuestion();
 }
 
-function updateChallengeBadge() {
+function updateMathChallengeBadge() {
     const challengeInfo = {
         addition: { icon: '➕', name: 'Addition', operator: '+' },
         subtraction: { icon: '➖', name: 'Subtraction', operator: '−' },
@@ -336,7 +509,7 @@ function updateChallengeBadge() {
     elements.operator.textContent = info.operator;
 }
 
-function generateQuestion() {
+function generateMathQuestion() {
     let num1, num2, answer, operator;
     
     switch (gameState.challengeType) {
@@ -405,25 +578,25 @@ function generateQuestion() {
     elements.answerInput.focus();
     
     // Start timer
-    startTimer();
+    startMathTimer();
 }
 
-function startTimer() {
+function startMathTimer() {
     if (gameState.timerInterval) {
         clearInterval(gameState.timerInterval);
     }
     
     gameState.timeLeft = CONFIG.TIMER_DURATION;
-    updateTimerDisplay();
+    updateMathTimerDisplay();
     
     gameState.timerInterval = setInterval(() => {
         if (gameState.isPaused) return;
         
         gameState.timeLeft--;
-        updateTimerDisplay();
+        updateMathTimerDisplay();
         
         if (gameState.timeLeft === CONFIG.TIMER_DURATION - CONFIG.HURRY_UP_TIME) {
-            showHurryUp();
+            showMathHurryUp();
         }
         
         if (gameState.timeLeft <= 3 && gameState.timeLeft > 0) {
@@ -431,12 +604,12 @@ function startTimer() {
         }
         
         if (gameState.timeLeft <= 0) {
-            handleTimeUp();
+            handleMathTimeUp();
         }
     }, 1000);
 }
 
-function updateTimerDisplay() {
+function updateMathTimerDisplay() {
     elements.timerText.textContent = gameState.timeLeft;
     
     const circumference = 283;
@@ -455,7 +628,7 @@ function updateTimerDisplay() {
     }
 }
 
-function showHurryUp() {
+function showMathHurryUp() {
     elements.hurryIndicator.classList.add('show');
     playSound('hurry');
     speakHurryUp();
@@ -466,7 +639,7 @@ function showHurryUp() {
     }, 300);
 }
 
-function handleTimeUp() {
+function handleMathTimeUp() {
     clearInterval(gameState.timerInterval);
     
     elements.feedback.textContent = '⏰ Time\'s up! Try again!';
@@ -483,11 +656,11 @@ function handleTimeUp() {
         elements.feedback.textContent = '';
         elements.answerInput.value = '';
         elements.answerInput.focus();
-        startTimer();
+        startMathTimer();
     }, 2000);
 }
 
-function checkAnswer() {
+function checkMathAnswer() {
     const userAnswer = parseInt(elements.answerInput.value);
     
     if (isNaN(userAnswer)) {
@@ -498,13 +671,13 @@ function checkAnswer() {
     clearInterval(gameState.timerInterval);
     
     if (userAnswer === gameState.currentQuestion.answer) {
-        handleCorrectAnswer();
+        handleMathCorrectAnswer();
     } else {
-        handleWrongAnswer();
+        handleMathWrongAnswer();
     }
 }
 
-function handleCorrectAnswer() {
+function handleMathCorrectAnswer() {
     gameState.streak++;
     gameState.questionsAnswered++;
     
@@ -533,21 +706,21 @@ function handleCorrectAnswer() {
     }
     
     // Update streak badge
-    updateStreakBadge();
+    updateMathStreakBadge();
     
     // Next question after delay
     setTimeout(() => {
-        generateQuestion();
+        generateMathQuestion();
     }, 1500);
 }
 
-function handleWrongAnswer() {
+function handleMathWrongAnswer() {
     elements.feedback.textContent = `😢 Try again! You can do it!`;
     elements.feedback.className = 'feedback wrong';
     
     // Reset streak
     gameState.streak = 0;
-    updateStreakBadge();
+    updateMathStreakBadge();
     stopSnowfall();
     
     // Visual effects
@@ -560,12 +733,12 @@ function handleWrongAnswer() {
         elements.answerInput.value = '';
         elements.answerInput.focus();
         elements.questionCard.classList.remove('wrong-shake');
-        startTimer();
+        startMathTimer();
     }, 1500);
 }
 
-function updateStreakBadge() {
-    const existingBadge = document.querySelector('.streak-badge');
+function updateMathStreakBadge() {
+    const existingBadge = elements.questionCard.querySelector('.streak-badge');
     if (existingBadge) {
         existingBadge.remove();
     }
@@ -686,7 +859,495 @@ function quitGame() {
     
     elements.pauseOverlay.classList.remove('show');
     elements.gameScreen.classList.remove('active');
-    elements.welcomeScreen.classList.add('active');
+    elements.mathWelcomeScreen.classList.add('active');
+}
+
+// ===========================================
+// ENGLISH GAME LOGIC
+// ===========================================
+function startEnglishGame() {
+    // Reset game state
+    gameState.score = 0;
+    gameState.streak = 0;
+    gameState.questionsAnswered = 0;
+    gameState.isGameActive = true;
+    gameState.isPaused = false;
+    gameState.category = 'english';
+    gameState.usedQuestions = [];
+    
+    // Update UI
+    elements.englishScore.textContent = '0';
+    
+    // Update challenge badge
+    updateEnglishChallengeBadge();
+    
+    // Switch screens
+    elements.englishWelcomeScreen.classList.remove('active');
+    elements.englishGameScreen.classList.add('active');
+    
+    // Generate first question
+    generateEnglishQuestion();
+}
+
+function updateEnglishChallengeBadge() {
+    const grammarData = GRAMMAR_DATA[gameState.challengeType];
+    elements.englishChallengeIcon.textContent = grammarData.icon;
+    elements.englishChallengeName.textContent = grammarData.name;
+    elements.questionInstruction.textContent = grammarData.instruction;
+}
+
+function generateEnglishQuestion() {
+    const grammarData = GRAMMAR_DATA[gameState.challengeType];
+    const sentences = grammarData.sentences;
+    
+    // Find available questions (not yet used)
+    const availableIndices = sentences.map((_, i) => i)
+        .filter(i => !gameState.usedQuestions.includes(i));
+    
+    // If all questions used, reset
+    if (availableIndices.length === 0) {
+        gameState.usedQuestions = [];
+        availableIndices.push(...sentences.map((_, i) => i));
+    }
+    
+    // Pick a random question
+    const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+    gameState.usedQuestions.push(randomIndex);
+    
+    const question = sentences[randomIndex];
+    
+    // Store current question
+    gameState.currentQuestion = {
+        template: question.template,
+        answer: question.answer,
+        options: shuffleArray([...question.options]),
+        explanation: question.explanation || ''
+    };
+    
+    // Display sentence with blank
+    displayEnglishSentence(question.template);
+    
+    // Display word options
+    displayWordOptions(gameState.currentQuestion.options);
+    
+    // Clear feedback
+    elements.englishFeedback.textContent = '';
+    elements.englishFeedback.className = 'feedback';
+    elements.englishQuestionCard.classList.remove('correct-glow', 'wrong-shake');
+    elements.englishHurryIndicator.classList.remove('show');
+    
+    // Start timer
+    startEnglishTimer();
+}
+
+function shuffleArray(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+function displayEnglishSentence(template) {
+    // Replace _____ with a styled blank
+    const html = template.replace('_____', '<span class="blank-word">_____</span>');
+    elements.sentenceDisplay.innerHTML = html;
+}
+
+function displayWordOptions(options) {
+    elements.wordOptions.innerHTML = '';
+    
+    options.forEach(word => {
+        const button = document.createElement('button');
+        button.className = 'word-option';
+        button.textContent = word;
+        button.addEventListener('click', () => checkEnglishAnswer(word, button));
+        
+        // Add info icon for word meaning
+        const infoIcon = document.createElement('span');
+        infoIcon.className = 'word-info';
+        infoIcon.textContent = 'ℹ️';
+        infoIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showWordDefinition(word);
+        });
+        button.appendChild(infoIcon);
+        
+        elements.wordOptions.appendChild(button);
+    });
+}
+
+function startEnglishTimer() {
+    if (gameState.timerInterval) {
+        clearInterval(gameState.timerInterval);
+    }
+    
+    gameState.timeLeft = CONFIG.ENGLISH_TIMER_DURATION;
+    updateEnglishTimerDisplay();
+    
+    gameState.timerInterval = setInterval(() => {
+        if (gameState.isPaused) return;
+        
+        gameState.timeLeft--;
+        updateEnglishTimerDisplay();
+        
+        if (gameState.timeLeft === CONFIG.ENGLISH_TIMER_DURATION - CONFIG.ENGLISH_HURRY_UP_TIME) {
+            showEnglishHurryUp();
+        }
+        
+        if (gameState.timeLeft <= 3 && gameState.timeLeft > 0) {
+            playSound('tick');
+        }
+        
+        if (gameState.timeLeft <= 0) {
+            handleEnglishTimeUp();
+        }
+    }, 1000);
+}
+
+function updateEnglishTimerDisplay() {
+    elements.englishTimerText.textContent = gameState.timeLeft;
+    
+    const circumference = 283;
+    const progress = (gameState.timeLeft / CONFIG.ENGLISH_TIMER_DURATION) * circumference;
+    elements.englishTimerCircle.style.strokeDashoffset = circumference - progress;
+    
+    elements.englishTimerText.classList.remove('warning', 'danger');
+    elements.englishTimerCircle.classList.remove('warning', 'danger');
+    
+    if (gameState.timeLeft <= 3) {
+        elements.englishTimerText.classList.add('danger');
+        elements.englishTimerCircle.classList.add('danger');
+    } else if (gameState.timeLeft <= CONFIG.ENGLISH_TIMER_DURATION - CONFIG.ENGLISH_HURRY_UP_TIME) {
+        elements.englishTimerText.classList.add('warning');
+        elements.englishTimerCircle.classList.add('warning');
+    }
+}
+
+function showEnglishHurryUp() {
+    elements.englishHurryIndicator.classList.add('show');
+    playSound('hurry');
+    speakHurryUp();
+}
+
+function handleEnglishTimeUp() {
+    clearInterval(gameState.timerInterval);
+    
+    // Highlight correct answer
+    const buttons = elements.wordOptions.querySelectorAll('.word-option');
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        if (btn.textContent.replace('ℹ️', '').trim() === gameState.currentQuestion.answer) {
+            btn.classList.add('correct');
+        }
+    });
+    
+    // Get explanation for the correct answer
+    const explanation = gameState.currentQuestion.explanation || '';
+    
+    // Show feedback with explanation
+    elements.englishFeedback.innerHTML = `
+        <div class="wrong-answer-feedback">
+            <div class="feedback-title">⏰ Time's up! The answer was "${gameState.currentQuestion.answer}"</div>
+            ${explanation ? `<div class="feedback-explanation">💡 <strong>Why?</strong> ${explanation}</div>` : ''}
+        </div>
+    `;
+    elements.englishFeedback.className = 'feedback wrong with-explanation';
+    
+    showSadEmoji();
+    playSound('wrong');
+    
+    // Reset streak
+    gameState.streak = 0;
+    stopSnowfall();
+    
+    // 60 seconds delay to read explanation
+    setTimeout(() => {
+        generateEnglishQuestion();
+    }, 20000);
+}
+
+function checkEnglishAnswer(selectedWord, button) {
+    clearInterval(gameState.timerInterval);
+    
+    // Disable all buttons
+    const buttons = elements.wordOptions.querySelectorAll('.word-option');
+    buttons.forEach(btn => btn.disabled = true);
+    
+    if (selectedWord === gameState.currentQuestion.answer) {
+        handleEnglishCorrectAnswer(button);
+    } else {
+        handleEnglishWrongAnswer(button);
+    }
+}
+
+function handleEnglishCorrectAnswer(button) {
+    gameState.streak++;
+    gameState.questionsAnswered++;
+    
+    // Calculate points with streak bonus
+    let points = CONFIG.POINTS_PER_CORRECT;
+    if (gameState.streak > 3) {
+        points += (gameState.streak - 3) * CONFIG.BONUS_STREAK_MULTIPLIER;
+    }
+    
+    gameState.score += points;
+    elements.englishScore.textContent = gameState.score;
+    
+    // Show feedback
+    const streakText = gameState.streak >= 3 ? ` 🔥 ${gameState.streak} streak!` : '';
+    elements.englishFeedback.textContent = `🎉 Correct! +${points} points${streakText}`;
+    elements.englishFeedback.className = 'feedback correct';
+    
+    // Mark button as correct
+    button.classList.add('correct');
+    
+    // Fill in the blank with correct answer
+    const blankSpan = elements.sentenceDisplay.querySelector('.blank-word');
+    if (blankSpan) {
+        blankSpan.textContent = gameState.currentQuestion.answer;
+        blankSpan.classList.add('filled');
+    }
+    
+    // Visual effects
+    elements.englishQuestionCard.classList.add('correct-glow');
+    showPartyPoppers();
+    playSound('correct');
+    
+    // Check for snowfall trigger
+    if (gameState.streak === CONFIG.SNOWFALL_STREAK) {
+        startSnowfall();
+    }
+    
+    // Update streak badge
+    updateEnglishStreakBadge();
+    
+    // Next question after delay
+    setTimeout(() => {
+        generateEnglishQuestion();
+    }, 2000);
+}
+
+function handleEnglishWrongAnswer(button) {
+    button.classList.add('wrong');
+    
+    // Show correct answer
+    const buttons = elements.wordOptions.querySelectorAll('.word-option');
+    buttons.forEach(btn => {
+        if (btn.textContent.replace('ℹ️', '').trim() === gameState.currentQuestion.answer) {
+            btn.classList.add('correct');
+        }
+    });
+    
+    // Get explanation for the correct answer
+    const explanation = gameState.currentQuestion.explanation || '';
+    
+    // Show feedback with explanation
+    elements.englishFeedback.innerHTML = `
+        <div class="wrong-answer-feedback">
+            <div class="feedback-title">😢 Not quite! The answer was "${gameState.currentQuestion.answer}"</div>
+            ${explanation ? `<div class="feedback-explanation">💡 <strong>Why?</strong> ${explanation}</div>` : ''}
+        </div>
+    `;
+    elements.englishFeedback.className = 'feedback wrong with-explanation';
+    
+    // Reset streak
+    gameState.streak = 0;
+    updateEnglishStreakBadge();
+    stopSnowfall();
+    
+    // Visual effects
+    elements.englishQuestionCard.classList.add('wrong-shake');
+    showSadEmoji();
+    playSound('wrong');
+    
+    // Next question after delay (60 seconds to read explanation)
+    setTimeout(() => {
+        generateEnglishQuestion();
+    }, 60000);
+}
+
+function updateEnglishStreakBadge() {
+    const existingBadge = elements.englishQuestionCard.querySelector('.streak-badge');
+    if (existingBadge) {
+        existingBadge.remove();
+    }
+    
+    if (gameState.streak >= 3) {
+        const badge = document.createElement('div');
+        badge.className = 'streak-badge';
+        badge.textContent = `🔥 ${gameState.streak} streak!`;
+        elements.englishQuestionCard.appendChild(badge);
+    }
+}
+
+// ===========================================
+// WORD DEFINITION (API)
+// ===========================================
+async function showWordDefinition(word) {
+    // Show modal immediately with loading state
+    elements.definitionWord.textContent = word;
+    elements.definitionPhonetic.textContent = 'Loading...';
+    elements.definitionMeaning.innerHTML = '<p>Fetching definition...</p>';
+    elements.playPronunciationBtn.style.display = 'none';
+    currentWordAudioUrl = null;
+    
+    elements.definitionModal.classList.add('show');
+    
+    try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+        
+        if (!response.ok) {
+            throw new Error('Word not found');
+        }
+        
+        const data = await response.json();
+        const wordData = data[0];
+        
+        // Get phonetic
+        let phonetic = wordData.phonetic || '';
+        if (!phonetic && wordData.phonetics) {
+            const phoneticObj = wordData.phonetics.find(p => p.text);
+            phonetic = phoneticObj ? phoneticObj.text : '';
+        }
+        elements.definitionPhonetic.textContent = phonetic;
+        
+        // Get audio URL
+        if (wordData.phonetics) {
+            const audioObj = wordData.phonetics.find(p => p.audio && p.audio.length > 0);
+            if (audioObj) {
+                currentWordAudioUrl = audioObj.audio;
+                elements.playPronunciationBtn.style.display = 'inline-flex';
+            }
+        }
+        
+        // Get meanings
+        let meaningsHtml = '';
+        wordData.meanings.forEach(meaning => {
+            meaningsHtml += `<div class="meaning-entry">`;
+            meaningsHtml += `<strong>${meaning.partOfSpeech}</strong>`;
+            meaningsHtml += `<ul>`;
+            meaning.definitions.slice(0, 2).forEach(def => {
+                meaningsHtml += `<li>${def.definition}`;
+                if (def.example) {
+                    meaningsHtml += `<br><em>Example: "${def.example}"</em>`;
+                }
+                meaningsHtml += `</li>`;
+            });
+            meaningsHtml += `</ul></div>`;
+        });
+        
+        elements.definitionMeaning.innerHTML = meaningsHtml;
+        
+    } catch (error) {
+        elements.definitionPhonetic.textContent = '';
+        elements.definitionMeaning.innerHTML = `
+            <p>Sorry, couldn't find the definition for "${word}".</p>
+            <p><em>This word is used to describe: ${getWordTypeDescription(word)}</em></p>
+        `;
+    }
+}
+
+function getWordTypeDescription(word) {
+    // Provide fallback descriptions for common grammar words
+    const descriptions = {
+        // Adjectives
+        'tall': 'something with great height',
+        'messy': 'something untidy or disorganized',
+        'juicy': 'something with lots of juice or flavor',
+        'long': 'something with great length',
+        'busy': 'full of activity or people',
+        'warm': 'having a comfortable heat',
+        'happy': 'feeling joy or pleasure',
+        'beautiful': 'pleasing to look at',
+        'huge': 'very large in size',
+        'loud': 'making a lot of noise',
+        'lazy': 'not wanting to work or be active',
+        'delicious': 'tasting very good',
+        'strong': 'having great power or force',
+        'bright': 'giving out light or shining',
+        'kind': 'friendly and helpful',
+        // Adverbs
+        'slowly': 'at a slow speed',
+        'quickly': 'at a fast speed',
+        'carefully': 'with great attention',
+        'happily': 'in a happy way',
+        'loudly': 'in a loud way',
+        'quietly': 'without making much noise',
+        'beautifully': 'in a beautiful way',
+        'gracefully': 'with elegance',
+        'patiently': 'with patience',
+        'fiercely': 'with great intensity',
+        'correctly': 'in a correct way',
+        'elegantly': 'with elegance and style',
+        'honestly': 'in an honest way',
+        'brightly': 'with brightness',
+        // Conjunctions
+        'and': 'connecting words or ideas together',
+        'but': 'showing contrast or exception',
+        'or': 'showing alternatives or choices',
+        'so': 'showing result or consequence',
+        'because': 'showing reason or cause',
+        'if': 'showing condition'
+    };
+    
+    return descriptions[word.toLowerCase()] || 'a specific quality or action';
+}
+
+function closeDefinitionModal() {
+    elements.definitionModal.classList.remove('show');
+    currentWordAudioUrl = null;
+}
+
+function playPronunciation() {
+    if (currentWordAudioUrl) {
+        const audio = new Audio(currentWordAudioUrl);
+        audio.play();
+    } else {
+        // Fallback to speech synthesis
+        const word = elements.definitionWord.textContent;
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.rate = 0.8;
+            speechSynthesis.speak(utterance);
+        }
+    }
+}
+
+// ===========================================
+// ENGLISH PAUSE/RESUME
+// ===========================================
+function toggleEnglishPause() {
+    if (gameState.isPaused) {
+        resumeEnglishGame();
+    } else {
+        pauseEnglishGame();
+    }
+}
+
+function pauseEnglishGame() {
+    gameState.isPaused = true;
+    elements.englishPauseOverlay.classList.add('show');
+    elements.englishPauseIcon.textContent = '▶️';
+}
+
+function resumeEnglishGame() {
+    gameState.isPaused = false;
+    elements.englishPauseOverlay.classList.remove('show');
+    elements.englishPauseIcon.textContent = '⏸️';
+}
+
+function quitEnglishGame() {
+    clearInterval(gameState.timerInterval);
+    stopSnowfall();
+    
+    gameState.isGameActive = false;
+    gameState.isPaused = false;
+    
+    elements.englishPauseOverlay.classList.remove('show');
+    elements.englishGameScreen.classList.remove('active');
+    elements.englishWelcomeScreen.classList.add('active');
 }
 
 // ===========================================
@@ -749,6 +1410,299 @@ function showSadEmoji() {
     elements.celebrationContainer.appendChild(sadDiv);
     
     setTimeout(() => sadDiv.remove(), 1500);
+}
+
+// ===========================================
+// VOCABULARY LEARNING GAME
+// ===========================================
+function startVocabularyLearning() {
+    // Reset vocabulary state
+    gameState.vocabCurrentIndex = 0;
+    gameState.vocabQuizIndex = 0;
+    gameState.vocabCorrect = 0;
+    gameState.vocabScore = 0;
+    
+    // Select 5 random words from the pool
+    gameState.vocabWords = selectRandomVocabWords(5);
+    
+    // Update UI
+    elements.vocabTotal.textContent = gameState.vocabWords.length;
+    
+    // Switch screens
+    elements.englishWelcomeScreen.classList.remove('active');
+    elements.vocabularyResultsScreen.classList.remove('active');
+    elements.vocabularyLearnScreen.classList.add('active');
+    
+    // Display first word
+    displayVocabWord(0);
+    
+    // Build word dots
+    buildVocabWordDots();
+}
+
+function selectRandomVocabWords(count) {
+    // Find available words (not yet used)
+    const availableIndices = VOCABULARY_DATA.map((_, i) => i)
+        .filter(i => !gameState.usedVocabWords.includes(i));
+    
+    // If we've used most words, reset
+    if (availableIndices.length < count) {
+        gameState.usedVocabWords = [];
+        availableIndices.push(...VOCABULARY_DATA.map((_, i) => i));
+    }
+    
+    // Shuffle and pick random words
+    const shuffled = shuffleArray(availableIndices);
+    const selectedIndices = shuffled.slice(0, count);
+    
+    // Mark as used
+    gameState.usedVocabWords.push(...selectedIndices);
+    
+    return selectedIndices.map(i => VOCABULARY_DATA[i]);
+}
+
+function displayVocabWord(index) {
+    const word = gameState.vocabWords[index];
+    
+    elements.vocabCurrent.textContent = index + 1;
+    elements.vocabWord.textContent = word.word;
+    elements.meaningText.textContent = word.meaning;
+    elements.exampleText.innerHTML = `<em>"${word.example}"</em>`;
+    
+    // Update word dots
+    updateVocabWordDots(index);
+    
+    // Update button text
+    if (index === gameState.vocabWords.length - 1) {
+        elements.vocabNextBtn.textContent = '🎯 Start Quiz!';
+    } else {
+        elements.vocabNextBtn.textContent = 'Next Word ➡️';
+    }
+    
+    // Update back button visibility
+    elements.vocabBackBtn.style.display = index === 0 ? 'none' : 'inline-flex';
+}
+
+function buildVocabWordDots() {
+    elements.vocabWordsList.innerHTML = '';
+    
+    gameState.vocabWords.forEach((word, index) => {
+        const dot = document.createElement('div');
+        dot.className = 'vocab-word-dot';
+        dot.textContent = index + 1;
+        dot.addEventListener('click', () => {
+            gameState.vocabCurrentIndex = index;
+            displayVocabWord(index);
+        });
+        elements.vocabWordsList.appendChild(dot);
+    });
+    
+    updateVocabWordDots(0);
+}
+
+function updateVocabWordDots(activeIndex) {
+    const dots = elements.vocabWordsList.querySelectorAll('.vocab-word-dot');
+    dots.forEach((dot, i) => {
+        dot.classList.remove('active', 'completed');
+        if (i === activeIndex) {
+            dot.classList.add('active');
+        } else if (i < activeIndex) {
+            dot.classList.add('completed');
+        }
+    });
+}
+
+function goBackFromVocab() {
+    if (gameState.vocabCurrentIndex > 0) {
+        gameState.vocabCurrentIndex--;
+        displayVocabWord(gameState.vocabCurrentIndex);
+    } else {
+        // Go back to English welcome
+        elements.vocabularyLearnScreen.classList.remove('active');
+        elements.englishWelcomeScreen.classList.add('active');
+    }
+}
+
+function goToNextVocabWord() {
+    if (gameState.vocabCurrentIndex < gameState.vocabWords.length - 1) {
+        gameState.vocabCurrentIndex++;
+        displayVocabWord(gameState.vocabCurrentIndex);
+    } else {
+        // Start the quiz
+        startVocabularyQuiz();
+    }
+}
+
+function speakWord(word) {
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.rate = 0.8;
+        utterance.pitch = 1;
+        speechSynthesis.speak(utterance);
+    }
+}
+
+// ===========================================
+// VOCABULARY QUIZ
+// ===========================================
+function startVocabularyQuiz() {
+    gameState.vocabQuizIndex = 0;
+    gameState.vocabCorrect = 0;
+    gameState.vocabScore = 0;
+    
+    // Shuffle the words for quiz
+    gameState.vocabWords = shuffleArray(gameState.vocabWords);
+    
+    // Update UI
+    elements.quizTotal.textContent = gameState.vocabWords.length;
+    elements.vocabScoreDisplay.textContent = '0';
+    
+    // Switch screens
+    elements.vocabularyLearnScreen.classList.remove('active');
+    elements.vocabularyQuizScreen.classList.add('active');
+    
+    // Display first quiz question
+    displayQuizQuestion(0);
+}
+
+function displayQuizQuestion(index) {
+    const word = gameState.vocabWords[index];
+    
+    elements.quizCurrent.textContent = index + 1;
+    elements.quizMeaning.textContent = word.meaning;
+    elements.vocabFeedback.innerHTML = '';
+    elements.vocabFeedback.className = 'feedback';
+    
+    // Create options: correct word + 2 similar misspellings
+    const options = shuffleArray([word.word, ...word.similar]);
+    
+    // Display spelling options
+    elements.spellingOptions.innerHTML = '';
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'spelling-option';
+        button.textContent = option;
+        button.addEventListener('click', () => checkVocabAnswer(option, button, word.word));
+        elements.spellingOptions.appendChild(button);
+    });
+}
+
+function checkVocabAnswer(selected, button, correct) {
+    // Disable all buttons
+    const buttons = elements.spellingOptions.querySelectorAll('.spelling-option');
+    buttons.forEach(btn => btn.classList.add('disabled'));
+    
+    if (selected === correct) {
+        handleVocabCorrect(button);
+    } else {
+        handleVocabWrong(button, correct);
+    }
+}
+
+function handleVocabCorrect(button) {
+    gameState.vocabCorrect++;
+    gameState.vocabScore += CONFIG.POINTS_PER_CORRECT;
+    
+    button.classList.add('correct');
+    elements.vocabScoreDisplay.textContent = gameState.vocabScore;
+    
+    elements.vocabFeedback.innerHTML = '🎉 Correct! Great spelling!';
+    elements.vocabFeedback.className = 'feedback correct';
+    
+    playSound('correct');
+    showPartyPoppers();
+    
+    // Move to next question or results
+    setTimeout(() => {
+        if (gameState.vocabQuizIndex < gameState.vocabWords.length - 1) {
+            gameState.vocabQuizIndex++;
+            displayQuizQuestion(gameState.vocabQuizIndex);
+        } else {
+            showVocabResults();
+        }
+    }, 1500);
+}
+
+function handleVocabWrong(button, correct) {
+    button.classList.add('incorrect');
+    
+    // Highlight correct answer
+    const buttons = elements.spellingOptions.querySelectorAll('.spelling-option');
+    buttons.forEach(btn => {
+        if (btn.textContent === correct) {
+            btn.classList.add('show-correct');
+        }
+    });
+    
+    elements.vocabFeedback.innerHTML = `😢 The correct spelling is <strong>"${correct}"</strong>`;
+    elements.vocabFeedback.className = 'feedback wrong';
+    
+    playSound('wrong');
+    showSadEmoji();
+    
+    // Move to next question or results after longer delay to learn
+    setTimeout(() => {
+        if (gameState.vocabQuizIndex < gameState.vocabWords.length - 1) {
+            gameState.vocabQuizIndex++;
+            displayQuizQuestion(gameState.vocabQuizIndex);
+        } else {
+            showVocabResults();
+        }
+    }, 3000);
+}
+
+function showVocabResults() {
+    // Calculate results
+    const totalWords = gameState.vocabWords.length;
+    const correct = gameState.vocabCorrect;
+    const score = gameState.vocabScore;
+    
+    // Set emoji and title based on performance
+    let emoji, title;
+    const percentage = (correct / totalWords) * 100;
+    
+    if (percentage === 100) {
+        emoji = '🏆';
+        title = 'Perfect Score!';
+    } else if (percentage >= 80) {
+        emoji = '🌟';
+        title = 'Excellent!';
+    } else if (percentage >= 60) {
+        emoji = '😊';
+        title = 'Good Job!';
+    } else if (percentage >= 40) {
+        emoji = '💪';
+        title = 'Keep Practicing!';
+    } else {
+        emoji = '📚';
+        title = 'Let\'s Learn More!';
+    }
+    
+    elements.resultsEmoji.textContent = emoji;
+    elements.resultsTitle.textContent = title;
+    elements.resultsScore.textContent = score;
+    elements.resultsCorrect.textContent = `${correct}/${totalWords}`;
+    
+    // Show words learned
+    elements.resultsWords.innerHTML = '<h3 style="margin-bottom: 15px; text-align: center;">Words You Learned:</h3>';
+    gameState.vocabWords.forEach(word => {
+        const item = document.createElement('div');
+        item.className = 'results-word-item';
+        item.innerHTML = `
+            <span class="word-status">📖</span>
+            <span class="word-text">${word.word}</span>
+        `;
+        elements.resultsWords.appendChild(item);
+    });
+    
+    // Switch screens
+    elements.vocabularyQuizScreen.classList.remove('active');
+    elements.vocabularyResultsScreen.classList.add('active');
+    
+    // Celebration for good performance
+    if (percentage >= 60) {
+        showPartyPoppers();
+    }
 }
 
 // ===========================================
