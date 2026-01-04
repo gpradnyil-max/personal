@@ -28,7 +28,10 @@ const CONFIG = {
     SNOWFALL_STREAK: 10,
     
     // Sounds enabled
-    SOUNDS_ENABLED: true
+    SOUNDS_ENABLED: true,
+    
+    // Questions per game session
+    QUESTIONS_PER_GAME: 30
 };
 
 // ===========================================
@@ -46,6 +49,9 @@ let gameState = {
     selectedTables: [...CONFIG.TABLES],
     streak: 0,
     questionsAnswered: 0,
+    questionsCorrect: 0,      // Track correct answers for summary
+    questionsWrong: 0,        // Track wrong answers for summary
+    wrongQuestions: [],       // Track details of wrong math questions
     challengeType: null,
     snowfallActive: false,
     category: null, // 'math' or 'english'
@@ -176,6 +182,27 @@ const elements = {
     resultsWords: document.getElementById('results-words'),
     vocabPlayAgainBtn: document.getElementById('vocab-play-again-btn'),
     vocabHomeBtn: document.getElementById('vocab-home-btn'),
+    
+    // Game Summary Screen (Universal)
+    gameSummaryScreen: document.getElementById('game-summary-screen'),
+    summarySmiley: document.getElementById('summary-smiley'),
+    summaryTitle: document.getElementById('summary-title'),
+    summarySubtitle: document.getElementById('summary-subtitle'),
+    starRating: document.getElementById('star-rating'),
+    summaryCorrect: document.getElementById('summary-correct'),
+    summaryWrong: document.getElementById('summary-wrong'),
+    summaryScore: document.getElementById('summary-score'),
+    summaryMessage: document.getElementById('summary-message'),
+    summaryPlayAgainBtn: document.getElementById('summary-play-again-btn'),
+    summaryHomeBtn: document.getElementById('summary-home-btn'),
+    wrongStatClickable: document.getElementById('wrong-stat-clickable'),
+    clickHint: document.getElementById('click-hint'),
+    
+    // Wrong Questions Modal
+    wrongQuestionsModal: document.getElementById('wrong-questions-modal'),
+    wrongQuestionsList: document.getElementById('wrong-questions-list'),
+    closeWrongModalBtn: document.getElementById('close-wrong-modal-btn'),
+    closeWrongReviewBtn: document.getElementById('close-wrong-review-btn'),
     
     // Effects
     celebrationContainer: document.getElementById('celebration-container'),
@@ -311,10 +338,26 @@ function setupEventListeners() {
     elements.vocabPlayAgainBtn.addEventListener('click', startVocabularyLearning);
     elements.vocabHomeBtn.addEventListener('click', goToMainWelcome);
     
+    // Game summary screen buttons
+    elements.summaryPlayAgainBtn.addEventListener('click', handlePlayAgain);
+    elements.summaryHomeBtn.addEventListener('click', goToMainWelcome);
+    
+    // Wrong questions review (Math only)
+    elements.wrongStatClickable.addEventListener('click', showWrongQuestionsModal);
+    elements.closeWrongModalBtn.addEventListener('click', closeWrongQuestionsModal);
+    elements.closeWrongReviewBtn.addEventListener('click', closeWrongQuestionsModal);
+    elements.wrongQuestionsModal.addEventListener('click', (e) => {
+        if (e.target === elements.wrongQuestionsModal) {
+            closeWrongQuestionsModal();
+        }
+    });
+    
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (elements.definitionModal.classList.contains('show')) {
+            if (elements.wrongQuestionsModal.classList.contains('show')) {
+                closeWrongQuestionsModal();
+            } else if (elements.definitionModal.classList.contains('show')) {
                 closeDefinitionModal();
             } else if (gameState.isGameActive) {
                 if (gameState.category === 'math') {
@@ -373,9 +416,11 @@ function goToMainWelcome() {
     elements.vocabularyLearnScreen.classList.remove('active');
     elements.vocabularyQuizScreen.classList.remove('active');
     elements.vocabularyResultsScreen.classList.remove('active');
+    elements.gameSummaryScreen.classList.remove('active');
     elements.mainWelcomeScreen.classList.add('active');
     gameState.category = null;
     gameState.challengeType = null;
+    stopSnowfall();
 }
 
 function goToMathWelcome() {
@@ -477,6 +522,9 @@ function startMathGame() {
     gameState.score = 0;
     gameState.streak = 0;
     gameState.questionsAnswered = 0;
+    gameState.questionsCorrect = 0;
+    gameState.questionsWrong = 0;
+    gameState.wrongQuestions = [];
     gameState.isGameActive = true;
     gameState.isPaused = false;
     gameState.category = 'math';
@@ -510,38 +558,53 @@ function updateMathChallengeBadge() {
 }
 
 function generateMathQuestion() {
+    // Check if we've reached the question limit
+    if (gameState.questionsAnswered >= CONFIG.QUESTIONS_PER_GAME) {
+        showGameSummary();
+        return;
+    }
+    
     let num1, num2, answer, operator;
     
     switch (gameState.challengeType) {
         case 'addition':
-            // Generate addition questions: 1-digit + 1-digit OR 2-digit + 1-digit
-            if (Math.random() < 0.5) {
-                // 1-digit + 1-digit (e.g., 2+3, 5+7)
-                num1 = Math.floor(Math.random() * 9) + 1; // 1-9
-                num2 = Math.floor(Math.random() * 9) + 1; // 1-9
+            // Two-digit + two-digit where one number is tens OR answer is tens
+            // Examples: 12 + 18 = 30, 32 + 30 = 62, 97 + 33 = 130
+            const additionType = Math.floor(Math.random() * 3);
+            
+            if (additionType === 0) {
+                // Type 1: Both two-digit, answer is a multiple of 10
+                // e.g., 12 + 18 = 30, 23 + 17 = 40, 45 + 25 = 70
+                const targetSum = (Math.floor(Math.random() * 15) + 3) * 10; // 30-170
+                num1 = Math.floor(Math.random() * Math.min(targetSum - 10, 89)) + 11; // 11 to min(targetSum-10, 99)
+                num2 = targetSum - num1;
+                // Ensure num2 is also two-digit (10-99)
+                if (num2 < 10 || num2 > 99) {
+                    num1 = Math.floor(targetSum / 2) - Math.floor(Math.random() * 5);
+                    num2 = targetSum - num1;
+                }
+            } else if (additionType === 1) {
+                // Type 2: First number is two-digit, second is a multiple of 10
+                // e.g., 32 + 30 = 62, 45 + 20 = 65
+                num1 = Math.floor(Math.random() * 89) + 11; // 11-99
+                num2 = (Math.floor(Math.random() * 9) + 1) * 10; // 10, 20...90
             } else {
-                // 2-digit + 1-digit (e.g., 75+5, 99+4)
-                num1 = Math.floor(Math.random() * 90) + 10; // 10-99
-                num2 = Math.floor(Math.random() * 9) + 1; // 1-9
+                // Type 3: First number is multiple of 10, second is two-digit
+                // e.g., 40 + 37 = 77, 50 + 28 = 78
+                num1 = (Math.floor(Math.random() * 9) + 1) * 10; // 10, 20...90
+                num2 = Math.floor(Math.random() * 89) + 11; // 11-99
             }
             answer = num1 + num2;
             operator = '+';
             break;
             
         case 'subtraction':
-            // Generate subtraction questions: 1-digit - 1-digit OR 2-digit - 1-digit
-            if (Math.random() < 0.5) {
-                // 1-digit - 1-digit (e.g., 9-4, 8-4)
-                num1 = Math.floor(Math.random() * 9) + 1; // 1-9
-                num2 = Math.floor(Math.random() * num1) + 1; // 1 to num1 (ensure positive result)
-                if (num2 > num1) {
-                    [num1, num2] = [num2, num1]; // Swap to ensure positive result
-                }
-            } else {
-                // 2-digit - 1-digit (e.g., 89-9, 95-5)
-                num1 = Math.floor(Math.random() * 90) + 10; // 10-99
-                num2 = Math.floor(Math.random() * 9) + 1; // 1-9
-            }
+            // Two-digit minus tens digit: e.g., 23-10=13, 32-30=2, 92-70=22
+            // First number is 11-99, second is a multiple of 10, result is positive
+            num1 = Math.floor(Math.random() * 89) + 11; // 11-99
+            const maxTens = Math.floor(num1 / 10); // Maximum tens we can subtract
+            const tensToSubtract = Math.floor(Math.random() * maxTens) + 1; // 1 to maxTens
+            num2 = tensToSubtract * 10; // 10, 20, 30, etc.
             answer = num1 - num2;
             operator = '−';
             break;
@@ -642,7 +705,19 @@ function showMathHurryUp() {
 function handleMathTimeUp() {
     clearInterval(gameState.timerInterval);
     
-    elements.feedback.textContent = '⏰ Time\'s up! Try again!';
+    gameState.questionsAnswered++;
+    gameState.questionsWrong++;
+    
+    // Track wrong question for summary (Math only)
+    gameState.wrongQuestions.push({
+        num1: gameState.currentQuestion.num1,
+        num2: gameState.currentQuestion.num2,
+        correctAnswer: gameState.currentQuestion.answer,
+        userAnswer: 'Time up',
+        operator: getOperatorSymbol()
+    });
+    
+    elements.feedback.textContent = `⏰ Time's up! The answer was ${gameState.currentQuestion.answer}`;
     elements.feedback.className = 'feedback wrong';
     
     showSadEmoji();
@@ -653,10 +728,7 @@ function handleMathTimeUp() {
     stopSnowfall();
     
     setTimeout(() => {
-        elements.feedback.textContent = '';
-        elements.answerInput.value = '';
-        elements.answerInput.focus();
-        startMathTimer();
+        generateMathQuestion();
     }, 2000);
 }
 
@@ -680,6 +752,7 @@ function checkMathAnswer() {
 function handleMathCorrectAnswer() {
     gameState.streak++;
     gameState.questionsAnswered++;
+    gameState.questionsCorrect++;
     
     // Calculate points with streak bonus
     let points = CONFIG.POINTS_PER_CORRECT;
@@ -715,7 +788,22 @@ function handleMathCorrectAnswer() {
 }
 
 function handleMathWrongAnswer() {
-    elements.feedback.textContent = `😢 Try again! You can do it!`;
+    const userAnswer = parseInt(elements.answerInput.value);
+    
+    gameState.questionsAnswered++;
+    gameState.questionsWrong++;
+    
+    // Track wrong question for summary (Math only)
+    gameState.wrongQuestions.push({
+        num1: gameState.currentQuestion.num1,
+        num2: gameState.currentQuestion.num2,
+        correctAnswer: gameState.currentQuestion.answer,
+        userAnswer: userAnswer,
+        operator: getOperatorSymbol()
+    });
+    
+    // Show correct answer
+    elements.feedback.textContent = `😢 The answer was ${gameState.currentQuestion.answer}. Keep going!`;
     elements.feedback.className = 'feedback wrong';
     
     // Reset streak
@@ -728,13 +816,20 @@ function handleMathWrongAnswer() {
     showSadEmoji();
     playSound('wrong');
     
-    // Let them try again
+    // Move to next question after showing correct answer
     setTimeout(() => {
-        elements.answerInput.value = '';
-        elements.answerInput.focus();
         elements.questionCard.classList.remove('wrong-shake');
-        startMathTimer();
-    }, 1500);
+        generateMathQuestion();
+    }, 2000);
+}
+
+function getOperatorSymbol() {
+    switch (gameState.challengeType) {
+        case 'addition': return '+';
+        case 'subtraction': return '−';
+        case 'multiplication': return '×';
+        default: return '?';
+    }
 }
 
 function updateMathStreakBadge() {
@@ -870,6 +965,8 @@ function startEnglishGame() {
     gameState.score = 0;
     gameState.streak = 0;
     gameState.questionsAnswered = 0;
+    gameState.questionsCorrect = 0;
+    gameState.questionsWrong = 0;
     gameState.isGameActive = true;
     gameState.isPaused = false;
     gameState.category = 'english';
@@ -897,6 +994,12 @@ function updateEnglishChallengeBadge() {
 }
 
 function generateEnglishQuestion() {
+    // Check if we've reached the question limit
+    if (gameState.questionsAnswered >= CONFIG.QUESTIONS_PER_GAME) {
+        showGameSummary();
+        return;
+    }
+    
     const grammarData = GRAMMAR_DATA[gameState.challengeType];
     const sentences = grammarData.sentences;
     
@@ -1034,6 +1137,9 @@ function showEnglishHurryUp() {
 function handleEnglishTimeUp() {
     clearInterval(gameState.timerInterval);
     
+    gameState.questionsAnswered++;
+    gameState.questionsWrong++;
+    
     // Highlight correct answer
     const buttons = elements.wordOptions.querySelectorAll('.word-option');
     buttons.forEach(btn => {
@@ -1062,7 +1168,7 @@ function handleEnglishTimeUp() {
     gameState.streak = 0;
     stopSnowfall();
     
-    // 60 seconds delay to read explanation
+    // 20 seconds delay to read explanation, then next question
     setTimeout(() => {
         generateEnglishQuestion();
     }, 20000);
@@ -1085,6 +1191,7 @@ function checkEnglishAnswer(selectedWord, button) {
 function handleEnglishCorrectAnswer(button) {
     gameState.streak++;
     gameState.questionsAnswered++;
+    gameState.questionsCorrect++;
     
     // Calculate points with streak bonus
     let points = CONFIG.POINTS_PER_CORRECT;
@@ -1130,6 +1237,9 @@ function handleEnglishCorrectAnswer(button) {
 }
 
 function handleEnglishWrongAnswer(button) {
+    gameState.questionsAnswered++;
+    gameState.questionsWrong++;
+    
     button.classList.add('wrong');
     
     // Show correct answer
@@ -1702,6 +1812,152 @@ function showVocabResults() {
     // Celebration for good performance
     if (percentage >= 60) {
         showPartyPoppers();
+    }
+}
+
+// ===========================================
+// GAME SUMMARY (Universal for Math & English)
+// ===========================================
+function showGameSummary() {
+    clearInterval(gameState.timerInterval);
+    gameState.isGameActive = false;
+    stopSnowfall();
+    
+    const correct = gameState.questionsCorrect;
+    const wrong = gameState.questionsWrong;
+    const total = correct + wrong;
+    const score = gameState.score;
+    
+    // Calculate star rating (1-5 stars based on percentage)
+    const percentage = (correct / total) * 100;
+    let stars = 0;
+    if (percentage >= 90) stars = 5;
+    else if (percentage >= 75) stars = 4;
+    else if (percentage >= 60) stars = 3;
+    else if (percentage >= 40) stars = 2;
+    else if (percentage > 0) stars = 1;
+    
+    // Update summary display
+    elements.summaryCorrect.textContent = correct;
+    elements.summaryWrong.textContent = wrong;
+    elements.summaryScore.textContent = score;
+    elements.summarySubtitle.textContent = `You completed ${total} questions!`;
+    
+    // Enable clickable wrong stat for Math only (if there are wrong answers)
+    if (gameState.category === 'math' && wrong > 0) {
+        elements.wrongStatClickable.classList.add('has-wrong');
+        elements.clickHint.style.display = 'block';
+    } else {
+        elements.wrongStatClickable.classList.remove('has-wrong');
+        elements.clickHint.style.display = 'none';
+    }
+    
+    // Set stars with golden glow
+    const starElements = elements.starRating.querySelectorAll('.star');
+    starElements.forEach((star, index) => {
+        star.classList.remove('active');
+        if (index < stars) {
+            // Animate stars appearing one by one
+            setTimeout(() => {
+                star.classList.add('active');
+            }, index * 200);
+        }
+    });
+    
+    // Set smiley and title based on performance
+    if (stars >= 3) {
+        // Happy smiley for 3+ stars
+        elements.summarySmiley.textContent = '😊';
+        elements.summarySmiley.classList.remove('sad');
+        elements.summarySmiley.classList.add('happy');
+        
+        if (stars === 5) {
+            elements.summaryTitle.textContent = '🏆 Perfect Score!';
+            elements.summaryMessage.textContent = 'Absolutely amazing! You are a superstar!';
+        } else if (stars === 4) {
+            elements.summaryTitle.textContent = '🌟 Excellent Work!';
+            elements.summaryMessage.textContent = 'Great job! You are doing wonderfully!';
+        } else {
+            elements.summaryTitle.textContent = '👏 Good Job!';
+            elements.summaryMessage.textContent = 'Nice work! Keep practicing to get even better!';
+        }
+        
+        // Show celebration for good performance
+        setTimeout(() => showPartyPoppers(), 500);
+    } else {
+        // Sad smiley for below 3 stars
+        elements.summarySmiley.textContent = '😢';
+        elements.summarySmiley.classList.remove('happy');
+        elements.summarySmiley.classList.add('sad');
+        
+        if (stars === 2) {
+            elements.summaryTitle.textContent = '💪 Keep Trying!';
+            elements.summaryMessage.textContent = 'You can do better! Practice makes perfect!';
+        } else {
+            elements.summaryTitle.textContent = '📚 Let\'s Practice More!';
+            elements.summaryMessage.textContent = 'Don\'t give up! Every mistake helps you learn!';
+        }
+    }
+    
+    // Hide current game screen and show summary
+    elements.gameScreen.classList.remove('active');
+    elements.englishGameScreen.classList.remove('active');
+    elements.gameSummaryScreen.classList.add('active');
+}
+
+function showWrongQuestionsModal() {
+    // Only show for Math and if there are wrong questions
+    if (gameState.category !== 'math' || gameState.wrongQuestions.length === 0) {
+        return;
+    }
+    
+    // Build the wrong questions list
+    elements.wrongQuestionsList.innerHTML = '';
+    
+    gameState.wrongQuestions.forEach((q, index) => {
+        const item = document.createElement('div');
+        item.className = 'wrong-question-item';
+        item.innerHTML = `
+            <div class="question-display">
+                ${q.num1} ${q.operator} ${q.num2} = ?
+            </div>
+            <div class="answer-comparison">
+                <div class="your-answer">
+                    <span class="label">Your Answer</span>
+                    <span class="value">${q.userAnswer}</span>
+                </div>
+                <div class="correct-answer">
+                    <span class="label">Correct Answer</span>
+                    <span class="value">${q.correctAnswer}</span>
+                </div>
+            </div>
+        `;
+        elements.wrongQuestionsList.appendChild(item);
+    });
+    
+    elements.wrongQuestionsModal.classList.add('show');
+}
+
+function closeWrongQuestionsModal() {
+    elements.wrongQuestionsModal.classList.remove('show');
+}
+
+function handlePlayAgain() {
+    elements.gameSummaryScreen.classList.remove('active');
+    
+    // Restart the same game type
+    if (gameState.category === 'math') {
+        if (gameState.challengeType === 'multiplication') {
+            elements.configScreen.classList.add('active');
+        } else {
+            startMathGame();
+        }
+    } else if (gameState.category === 'english') {
+        if (gameState.challengeType === 'vocabulary') {
+            startVocabularyLearning();
+        } else {
+            startEnglishGame();
+        }
     }
 }
 
